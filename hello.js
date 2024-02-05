@@ -1,6 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const xml2js = require('xml2js');
+const http = require('http');
 
 const app = express();
 const PORT = 3001;
@@ -120,6 +121,31 @@ app.post('/LGI', (req, res) =>
       }
     });
   });
+
+
+  app.post('/mint', (req, res) => {
+    // Parse the incoming SOAP XML
+    console.log(req.body);
+    
+      // Send SOAP response
+      res.set('Content-Type', 'text/xml');
+      res.send("Testing Mint");
+   
+  });
+
+  app.get('/status', (req, res) => {
+    // Simulate a check to see if everything is okay
+    const isGood = Math.random() < 0.5; // Randomly decide if it's good or not
+
+    if (isGood) {
+        // If everything is good, send a success response
+        res.status(200).json({ status: 'Hata' });
+    } else {
+        // If there's an error, send an error response
+        res.status(500).json({ status: 'Error' });
+    }
+});
+
 
 // Start the server
 app.listen(PORT, () => {
