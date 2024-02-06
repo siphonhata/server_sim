@@ -1,6 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const xml2js = require('xml2js');
+const http = require('http');
 
 const app = express();
 const PORT = 3001;
@@ -121,7 +122,6 @@ app.post('/LGI', (req, res) =>
     });
   });
 
-
   app.get('/status', (req, res) => {
     // Simulate a check to see if everything is okay
     const isGood = Math.random() < 0.5; // Randomly decide if it's good or not
@@ -134,7 +134,6 @@ app.post('/LGI', (req, res) =>
         res.status(500).json({ status: 'Error' });
     }
 });
-
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
