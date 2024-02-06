@@ -121,6 +121,20 @@ app.post('/LGI', (req, res) =>
     });
   });
 
+
+  app.get('/status', (req, res) => {
+    // Simulate a check to see if everything is okay
+    const isGood = Math.random() < 0.5; // Randomly decide if it's good or not
+
+    if (isGood) {
+        // If everything is good, send a success response
+        res.status(200).json({ status: 'Hata' });
+    } else {
+        // If there's an error, send an error response
+        res.status(500).json({ status: 'Error' });
+    }
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
