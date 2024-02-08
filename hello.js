@@ -43,7 +43,20 @@ app.post('/add', (req, res) => {
     res.send(responseXML);
   });
 });
+const activeSessions = new Map();
+// Function to generate a session token
+function generateSessionToken() {
+  let token = '';
+  const characters = '0123456789';
+  const tokenLength = 7; // You can adjust the length as needed
 
+  for (let i = 0; i < tokenLength; i++) {
+      const randomIndex = Math.floor(Math.random() * characters.length);
+      token += characters[randomIndex];
+  }
+
+  return token;
+}
 // Route for handling incoming SOAP requests to login (UDM)
 app.post('/LGI', (req, res) => 
   {
@@ -82,6 +95,12 @@ app.post('/LGI', (req, res) =>
       
       if (username === udm_username && pass === udm_password)
       {
+
+        const sessionToken = generateSessionToken();
+        // Associate the session token with the user
+        activeSessions.set(sessionToken, username);
+
+
         console.log("username and pass are correct")
         const responseXML = `
         <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
@@ -97,7 +116,13 @@ app.post('/LGI', (req, res) =>
           `;
   
         // Send SOAP response
-        res.set('Content-Type', 'application/xml');
+        //res.set('Content-Type', 'application/xml');
+        res.set({
+          'Content-Type': 'application/xml',
+          'Session': sessionToken,
+          'udm_node': `http://localhost:3002/${sessionToken}`,
+          'Connection': 'Keep-Alive'
+      });
         res.send(responseXML);
         return;
       }
