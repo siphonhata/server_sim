@@ -2,50 +2,11 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const xml2js = require('xml2js');
 const http = require('http');
-const http2 = require('http2');
-const fs = require('fs');
-const path = require('path');
 
 const app = express();
 const PORT = 3001;
 
 app.use(bodyParser.text({ type: 'application/xml' }));
-
-// Route for handling incoming SOAP requests to add two numbers
-app.post('/add', (req, res) => {
-  // Parse the incoming SOAP XML
-  console.log(req.body);
-  xml2js.parseString(req.body, (err, result) => {
-    if (err) {
-      console.error('Error parsing SOAP request:', err);
-      res.status(400).send('Error parsing SOAP request');
-      return;
-    }
-
-    // Extract numbers to be added
-    const num1 = parseInt(result['soap:Envelope']['soap:Body'][0]['Add'][0]['num1'][0]);
-    const num2 = parseInt(result['soap:Envelope']['soap:Body'][0]['Add'][0]['num2'][0]);
-
-    // Perform addition
-    const resultSum = num1 + num2;
-
-    // Prepare SOAP response
-    const responseXML = `
-      <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
-        <soap:Body>
-          <AddResponse>
-            <result>${resultSum}</result>
-          </AddResponse>
-        </soap:Body>
-      </soap:Envelope>
-    `;
-
-    // Send SOAP response
-    res.set('Content-Type', 'text/xml');
-    res.send(responseXML);
-  });
-});
-
 const activeSessions = new Map();
 
 function generateSessionToken() {
@@ -54,113 +15,86 @@ function generateSessionToken() {
   const tokenLength = 7;
 
   for (let i = 0; i < tokenLength; i++) {
-      const randomIndex = Math.floor(Math.random() * characters.length);
-      token += characters[randomIndex];
+    const randomIndex = Math.floor(Math.random() * characters.length);
+    token += characters[randomIndex];
   }
 
   return token;
 }
 
-// Route for handling incoming SOAP requests to login (UDM)
 app.post('/LGI', (req, res) => {
   xml2js.parseString(req.body, (err, result) => {
     if (err) {
       console.error('Error parsing SOAP request:', err);
-      const responseFailedXML = `
-          <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
-              <soap:Body>
-                  <LGIResponse>
-                      <Result>
-                          <ResultCode>1018</ResultCode>
-                          <ResultDesc>Error parsing SOAP request</ResultDesc>
-                      </Result>
-                  </LGIResponse>
-              </soap:Body>
-          </soap:Envelope>
-      `;
-      res.status(400).send(responseFailedXML);
-      return;
+      return res.status(400).send('Error parsing SOAP request');
     }
 
-    const username = result['soap:Envelope']['soap:Body'][0]['LGI'][0]['OPNAME'][0];
-    const pass = result['soap:Envelope']['soap:Body'][0]['LGI'][0]['PWD'][0];
+    const { OPNAME, PWD } = result['soap:Envelope']['soap:Body'][0]['LGI'][0];
+    const udmUsername = "udm_username";
+    const udmPassword = "udm_password";
 
-    const udm_username = "udm_username";
-    const udm_password = "udm_password";
-
-    if (username === udm_username && pass === udm_password) {
+    if (OPNAME[0] === udmUsername && PWD[0] === udmPassword) {
       const sessionToken = generateSessionToken();
-      activeSessions.set(sessionToken, username);
-
-      console.log("username and pass are correct")
+      activeSessions.set(sessionToken, OPNAME[0]);
+      const redirectURL = `http://localhost:3001/${sessionToken}`;
       const responseXML = `
-      <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
-            <soap:Body>
-              <LGIResponse>
-                  <Result>
-                      <ResultCode>0</ResultCode>
-                      <ResultDesc>Operation is successful</ResultDesc>
-                  </Result>
-              </LGIResponse>
-            </soap:Body>
-          </soap:Envelope>
-        `;
+        <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+          <soap:Body>
+            <LGIResponse>
+              <Result>
+                <ResultCode>0</ResultCode>
+                <ResultDesc>Operation is successful</ResultDesc>
+              </Result>
+            </LGIResponse>
+          </soap:Body>
+        </soap:Envelope>
+      `;
 
       res.set({
         'Content-Type': 'application/xml',
-        'Session': sessionToken,
-        'udm_node': `http://localhost:3002/${sessionToken}`,
+        'Location': redirectURL,
         'Connection': 'Keep-Alive'
       });
-      res.send(responseXML);
-      return;
+      res.status(307).contentType('application/xml').send(responseXML);
+      //res.status(200).contentType('application/xml').send(responseXML);
     } else {
-      console.log("username and pass dont match")
+      console.log("username and pass don't match");
       const responseFailedXML = `
         <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
           <soap:Body>
             <LGIResponse>
               <Result>
                 <ResultCode>1018</ResultCode>
-                <ResultDesc>Username/Password doesn&apos;t match</ResultDesc>
+                <ResultDesc>Username/Password doesn't match</ResultDesc>
               </Result>
             </LGIResponse>
           </soap:Body>
         </soap:Envelope>
       `;
       res.status(200).send(responseFailedXML);
-      return;
     }
   });
 });
 
-app.get('/status', (req, res) => {
-  const isGood = Math.random() < 0.5;
-
-  if (isGood) {
-      res.status(200).json({ status: 'Hata' });
+app.post('/:sessionId', (req, res) => {
+  const sessionId = req.params.sessionId;
+  console.log(sessionId)
+  console.log(activeSessions)
+  if (activeSessions.has(sessionId)) {
+    res.status(200).send('Session ID is valid');
   } else {
-      res.status(500).json({ status: 'Error' });
+    res.status(404).send('Session ID is not valid');
   }
 });
 
-// For HTTP2, you need SSL/TLS certificates
-const options = {
-  key: fs.readFileSync(path.join(__dirname, 'server.key')),
-  cert: fs.readFileSync(path.join(__dirname, 'server.crt'))
-};
-
-// Create HTTP server
-const httpServer = http.createServer(app);
-
-// Create HTTP2 server
-const http2Server = http2.createSecureServer(options, app);
-
-// Start both servers
-httpServer.listen(PORT, () => {
-  console.log(`HTTP Server is running on http://localhost:${PORT}`);
+app.get('/status', (req, res) => {
+  const isGood = Math.random() < 0.5;
+  const status = isGood ? 'Hata' : 'Error';
+  res.status(isGood ? 200 : 500).json({ status });
 });
 
-http2Server.listen(PORT + 1, () => {
-  console.log(`HTTP2 Server is running on https://localhost:${PORT + 1}`);
+const httpServer = http.createServer(app);
+httpServer.keepAliveTimeout = 50000;
+httpServer.listen(PORT, () => {
+  console.log(`HTTP Server is running on http://localhost:${PORT}`);
 });
