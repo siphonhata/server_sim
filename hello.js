@@ -2,6 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const xml2js = require('xml2js');
 const http = require('http');
+const fs = require('fs');
 
 const app = express();
 const PORT = 3001;
@@ -23,7 +24,8 @@ function generateSessionToken() {
 }
 
 app.post('/LGI', (req, res) => {
-  xml2js.parseString(req.body, (err, result) => {
+
+ setTimeout(() => { xml2js.parseString(req.body, (err, result) => {
     if (err) {
       console.error('Error parsing SOAP request:', err);
       return res.status(400).send('Error parsing SOAP request');
@@ -74,17 +76,43 @@ app.post('/LGI', (req, res) => {
       res.status(200).send(responseFailedXML);
     }
   });
+  }, 60000);
 });
 
 app.post('/:sessionId', (req, res) => {
   const sessionId = req.params.sessionId;
-  console.log(sessionId)
-  console.log(activeSessions)
+  
+  // Check if the session ID is valid
   if (activeSessions.has(sessionId)) {
-    res.status(200).send('Session ID is valid');
+      // Session ID is valid, respond with the LGI response body
+      const lgiResponseBody = `
+          <?xml version="1.0"?>
+          <SOAP:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+              <SOAP:Body>
+                  <LGIResponse>
+                      <Result>
+                          <ResultCode>0</ResultCode>
+                          <ResultDesc>Operation is successful</ResultDesc>
+                      </Result>
+                  </LGIResponse>
+              </SOAP:Body>
+          </SOAP:Envelope>
+      `;
+
+      // Respond with the LGI response body
+      res.status(200).send(lgiResponseBody);
   } else {
-    res.status(404).send('Session ID is not valid');
+      // Session ID is not valid, respond with a 404 status code
+      res.status(404).send('Session ID is not valid');
   }
+});
+
+////////////////////////////////
+
+app.post('/rmv_SUB', (req, res) => {
+  console.log("PHAKATHI")
+
+  res.send("PHA200").status(200);
 });
 
 app.get('/status', (req, res) => {
@@ -92,9 +120,26 @@ app.get('/status', (req, res) => {
   const status = isGood ? 'Hata' : 'Error';
   res.status(isGood ? 200 : 500).json({ status });
 });
+////////////////////
+function generateSANumbers(numOfNumbers, outputFile) {
+  const saNumbers = [];
+
+  for (let i = 0; i < numOfNumbers; i++) {
+      // Generate random 9-digit phone number
+      const phoneNumber = '27' + Math.floor(100000000 + Math.random() * 900000000);
+      saNumbers.push(phoneNumber);
+  }
+
+  // Write the phone numbers to a text file
+  fs.writeFile(outputFile, saNumbers.join('\n'), (err) => {
+      if (err) throw err;
+      console.log(`${numOfNumbers} SA phone numbers generated and saved to ${outputFile}.`);
+  });
+}
 
 const httpServer = http.createServer(app);
 httpServer.keepAliveTimeout = 50000;
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, () => 
+{
   console.log(`HTTP Server is running on http://localhost:${PORT}`);
 });
