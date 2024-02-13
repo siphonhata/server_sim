@@ -22,6 +22,56 @@ function generateSessionToken() {
 
   return token;
 }
+app.post('/rmv_SUB', (req, res) => 
+{
+ 
+  xml2js.parseString(req.body, (err, result) => {
+    if (err) {
+      console.error('Error parsing SOAP request:', err);
+      return res.status(400).send('Error parsing SOAP request');
+    }
+    
+    // start session check
+        const isdn = result['soap:Envelope']['soap:Body'][0]['rmv:RMV_SUB'][0]['rmv:ISDN'][0];
+        const rmvki = result['soap:Envelope']['soap:Body'][0]['rmv:RMV_SUB'][0]['rmv:RMVKI'][0];
+
+        fs.readFile('sa_phone_numbers.txt', 'utf8', (err, data) => {
+          if (err) {
+              console.error('Error reading file:', err);
+              return;
+          }
+      
+          // Split the file content by newline character
+          const lines = data.split('\n');
+      
+          // Filter out lines that do not match the ISDN
+          const filteredLines = lines.filter(line => {
+              // Assuming the ISDN is present at the beginning of the line
+              // You might need to adjust this depending on your file format
+              return !line.startsWith(isdn);
+          });
+
+          if (filteredLines.length === lines.length) {
+            console.error('ISDN not found in the file.');
+            return;
+        }
+      
+          // Join the filtered lines back into a single string
+          const updatedContent = filteredLines.join('\n');
+      
+          // Write the updated content back to the file
+          fs.writeFile('sa_phone_numbers.txt', updatedContent, 'utf8', err => {
+              if (err) {
+                  console.error('Error writing to file:', err);
+                  return;
+              }
+              console.log('ISDN removed successfully.');
+          });
+      });
+
+    res.send("ISDN removed successfully.").status(200);
+  });
+});
 
 app.post('/LGI', (req, res) => {
 
@@ -138,7 +188,7 @@ function generateSANumbers(numOfNumbers, outputFile) {
 }
 
 const httpServer = http.createServer(app);
-httpServer.keepAliveTimeout = 50000;
+httpServer.keepAliveTimeout = 670000;
 httpServer.listen(PORT, () => 
 {
   console.log(`HTTP Server is running on http://localhost:${PORT}`);
