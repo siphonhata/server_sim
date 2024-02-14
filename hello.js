@@ -75,7 +75,7 @@ app.post('/rmv_SUB', (req, res) =>
 
 app.post('/LGI', (req, res) => {
 
- setTimeout(() => { xml2js.parseString(req.body, (err, result) => {
+  xml2js.parseString(req.body, (err, result) => {
     if (err) {
       console.error('Error parsing SOAP request:', err);
       return res.status(400).send('Error parsing SOAP request');
@@ -126,7 +126,7 @@ app.post('/LGI', (req, res) => {
       res.status(200).send(responseFailedXML);
     }
   });
-  }, 60000);
+  
 });
 
 app.post('/:sessionId', (req, res) => {
